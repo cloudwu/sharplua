@@ -31,7 +31,7 @@ class Value {
 		void invoke_withstring(int n, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex=0)] var[] v,
 			int sn, [MarshalAs(UnmanagedType.LPArray, ArraySubType=UnmanagedType.LPStr, SizeParamIndex=2)] string[] vs);
 
-	bool pushvalue(ref var v, object arg, ref string[] str) {
+	int pushvalue(ref var v, object arg) {
 		if (arg == null) {
 			v.type = (int)var_type.NIL;
 		} else {
@@ -52,28 +52,37 @@ class Value {
 				v.type = (int)var_type.BOOLEAN;
 				v.d = (bool)arg ? 1 : 0;
 			} else if (t == typeof(string)) {
-				int idx = str.Length;
-				Array.Resize(ref str, idx + 1);
 				v.type = (int)var_type.STRING;
-				v.d = idx;
-				str[idx] = (string)arg;
+				return 2;	// string
 			} else {
-				return false;
+				return 0;	// error
 			}
 		}
-		return true;
+		return 1;
 	}
 	
 	public void request(params object[] arg) {
 		int n = arg.Length;
-		Array.Resize(ref v, n);
-		Array.Resize(ref vs, 0);
-		for (int i = 0; i < n; i++) { 
-			if (!pushvalue(ref v[i], arg[i], ref vs)) {
+		if (v.Length < n) {
+			Array.Resize(ref v, n);
+			Array.Resize(ref vs, n);
+		}
+		int sn = 0;
+		for (int i = 0; i < n; i++) {
+			int r = pushvalue(ref v[i], arg[i]);
+			switch(r) {
+			case 0:
 				throw new ArgumentException(String.Format("Unsupport type : {1} at {0}", i, arg[i].GetType()));
+			case 1:
+				break;
+			case 2:
+				// string
+				v[i].d = sn;
+				vs[sn] = (string)arg[i];
+				++sn;
+				break;
 			}
 		}
-		int sn = vs.Length;
 		if (sn == 0) {
 			invoke(n, v);
 		} else {
@@ -86,6 +95,6 @@ public class HelloWorld
 {
 	static public void Main() {
 		Value v = new Value();
-		v.request(1,2.0,"hello", false);
+		v.request(1,2.0,"hello", "World", false);
 	}
 }

@@ -5,49 +5,58 @@ class Value {
 	enum var_type {
 		NIL = 0,
 		INTEGER = 1,
-		REAL = 2,
-		BOOLEAN = 3,
-		STRING = 4,
+		INT64 = 2,
+		REAL = 3,
+		BOOLEAN = 4,
+		STRING = 5,
 	};
 	struct var {
-		public var_type type;
-		public long d;
+		public int type;
+		public int d;
+		public long d64;
 		public double f;
-		public bool b;
-		[MarshalAs(UnmanagedType.LPStr)]
-		public string s;
 	};
+	
+	const int default_length = 10;
+	var[] v = new var[default_length];
+	string[] vs = new string[default_length];
 
-	var[] v = new var[10];
-
-	private const string DLL = "native.dll";
+	const string DLL = "native.dll";
 	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
-	private static extern
+	static extern
 		void invoke(int n, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex=0)] var[] v);
 
-	bool pushvalue(ref var v, object arg) {
+	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
+	static extern
+		void invoke_withstring(int n, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex=0)] var[] v,
+			int sn, [MarshalAs(UnmanagedType.LPArray, ArraySubType=UnmanagedType.LPStr, SizeParamIndex=2)] string[] vs);
+
+	bool pushvalue(ref var v, object arg, ref string[] str) {
 		if (arg == null) {
-			v.type = var_type.NIL;
+			v.type = (int)var_type.NIL;
 		} else {
 			Type t = arg.GetType();
 			if (t == typeof(int)) {
-				v.type = var_type.INTEGER;
+				v.type = (int)var_type.INTEGER;
 				v.d = (int)arg;
 			} else if ( t == typeof(long)) {
-				v.type = var_type.INTEGER;
-				v.d = (long)arg;
+				v.type = (int)var_type.INTEGER;
+				v.d64 = (long)arg;
 			} else if (t == typeof(float)) {
-				v.type = var_type.REAL;
+				v.type = (int)var_type.REAL;
 				v.f = (float)arg;
 			} else if (t == typeof(double)) {
-				v.type = var_type.REAL;
+				v.type = (int)var_type.REAL;
 				v.f = (double)arg;
 			} else if (t == typeof(bool)) {
-				v.type = var_type.BOOLEAN;
-				v.b = (bool)arg;
+				v.type = (int)var_type.BOOLEAN;
+				v.d = (bool)arg ? 1 : 0;
 			} else if (t == typeof(string)) {
-				v.type = var_type.STRING;
-				v.s = (string)arg;
+				int idx = str.Length;
+				Array.Resize(ref str, idx + 1);
+				v.type = (int)var_type.STRING;
+				v.d = idx;
+				str[idx] = (string)arg;
 			} else {
 				return false;
 			}
@@ -58,12 +67,18 @@ class Value {
 	public void request(params object[] arg) {
 		int n = arg.Length;
 		Array.Resize(ref v, n);
+		Array.Resize(ref vs, 0);
 		for (int i = 0; i < n; i++) { 
-			if (!pushvalue(ref v[i], arg[i])) {
+			if (!pushvalue(ref v[i], arg[i], ref vs)) {
 				throw new ArgumentException(String.Format("Unsupport type : {1} at {0}", i, arg[i].GetType()));
 			}
 		}
-		invoke(n, v);
+		int sn = vs.Length;
+		if (sn == 0) {
+			invoke(n, v);
+		} else {
+			invoke_withstring(n, v, sn, vs);
+		}
 	}
 };
 

@@ -7,21 +7,21 @@
 enum var_type {
 	NIL = 0,
 	INTEGER = 1,
-	REAL = 2,
-	BOOLEAN = 3,
-	STRING = 4,
+	INT64 = 2,
+	REAL = 3,
+	BOOLEAN = 4,
+	STRING = 5,
 };
 
 struct var {
-	enum var_type type;
-	int64_t d;
+	int type;
+	int d;
+	int64_t d64;
 	double f;
-	bool b;
-	const char *s;
 };
 
 DLLEXPORT void
-invoke(int n, struct var * s) {
+invoke_withstring(int n, struct var *s, int sn, const char *str[]) {
 	int i;
 	for (i=0;i<n;i++) {
 		struct var *v = &s[i];
@@ -30,19 +30,28 @@ invoke(int n, struct var * s) {
 			printf("(nil)");
 			break;
 		case INTEGER:
-			printf("%d", (int)v->d);
+			printf("%d", v->d);
+			break;
+		case INT64:
+			printf("%d", (int)v->d64);
+			break;
 			break;
 		case REAL:
 			printf("%lf", v->f);
 			break;
 		case BOOLEAN:
-			printf("%s", v->b ? "true" : "false");
+			printf("%s", v->d ? "true" : "false");
 			break;
 		case STRING:
-			printf("%s", v->s);
+			printf("%s", str[v->d]);
 			break;
 		}
 		printf(",");
 	}
+}
+
+DLLEXPORT void
+invoke(int n, struct var * s) {
+	invoke_withstring(n,s,0, NULL);
 }
 

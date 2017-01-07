@@ -1,8 +1,12 @@
 using System;
 using System.Runtime.InteropServices;
 
+class MonoPInvokeCallbackAttribute : System.Attribute {
+	public MonoPInvokeCallbackAttribute( Type t ) {}
+}
+
 class ShapeLua {
-	enum var_type {
+	public enum var_type {
 		NIL = 0,
 		INTEGER = 1,
 		INT64 = 2,
@@ -13,7 +17,7 @@ class ShapeLua {
 		LUAOBJ = 7,
 		SHAPEOBJ = 8,
 	};
-	struct var {
+	public struct var {
 		public var_type type;
 		public int d;
 		public long d64;
@@ -29,10 +33,12 @@ class ShapeLua {
 	IntPtr L;
 	var[] args = new var[max_args];
 	string[] strs = new string[max_args];
-	ShapeObject objects = new ShapeObject();
+	static ShapeObject objects = new ShapeObject();	// All the ShapeLua class share one one objects map
+
+	public delegate string ShapeFunction(int n, var[] argv);
 
 	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
-	static extern IntPtr c_newvm([MarshalAs(UnmanagedType.LPStr)] string name, out IntPtr err);
+	static extern IntPtr c_newvm([MarshalAs(UnmanagedType.LPStr)] string name,  Callback cb, out IntPtr err);
 	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
 	static extern void c_closevm(IntPtr L);
 	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
@@ -42,10 +48,31 @@ class ShapeLua {
 		int strc, [In, MarshalAs(UnmanagedType.LPArray, ArraySubType=UnmanagedType.LPStr, SizeParamIndex=3)] string[] strs);
 	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
 	static extern int c_collectgarbage(IntPtr L, int n, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex=1)] int[] result);
+	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
+	static extern int c_pushstring(IntPtr ud, [MarshalAs(UnmanagedType.LPStr)] string str);
+
+	delegate int Callback(int argc, [In, Out, MarshalAs(UnmanagedType.LPArray, SizeConst=max_args)] var[] argv, IntPtr sud);
+	[MonoPInvokeCallback (typeof (Callback))]
+	static int CallShape(int argc, [In, Out, MarshalAs(UnmanagedType.LPArray, SizeConst=max_args)] var[] argv, IntPtr sud) {
+		try {
+			ShapeFunction f = (ShapeFunction)objects.Get(argv[0].d);
+			string ret = f(argc, argv);
+			if (ret != null) {
+				// push string into L for passing C shape string to lua.
+				if (c_pushstring(sud, ret) == 0) {
+					throw new ArgumentException("Push string failed");
+				}
+			}
+			return (int)argv[0].type;
+		} catch (Exception ex) {
+			c_pushstring(sud, ex.ToString());
+			return -1;
+		}
+	}
 
 	public ShapeLua(string name) {
 		IntPtr err;
-		IntPtr tmp = c_newvm(name, out err);
+		IntPtr tmp = c_newvm(name, CallShape, out err);
 		if (err != IntPtr.Zero) {
 			string msg = Marshal.PtrToStringAnsi(err);
 			c_closevm(tmp);

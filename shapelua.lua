@@ -58,4 +58,6 @@ function shapelua._garbage()
 	end
 end
 
+shapelua.call = require "shapelua.cscall"
+
 return shapelua

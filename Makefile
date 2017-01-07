@@ -1,12 +1,12 @@
-all : native.dll test.exe
+all : shapelua.dll test.exe
 
-native.dll : native.c
-	gcc -g -Wall -o $@ --shared $^
+shapelua.dll : shapelua.c
+	gcc -g -Wall -o $@ --shared $^ -I/usr/local/include -L/usr/local/lib -llua
 
-test.exe : test.cs
+test.exe : test.cs shapelua.cs shapeobject.cs
 	mcs -codepage:utf8 $^
 
 clean:
-	rm native.dll test.exe
+	rm shapelua.dll test.exe
 
 

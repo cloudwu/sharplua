@@ -1,4 +1,4 @@
-local shapelua = require "shapelua"
+local sharplua = require "sharplua"
 
 local csfunc
 
@@ -7,7 +7,7 @@ function init(c)
 end
 
 function callback(...)
-	local ret = shapelua.call(csfunc, ...)
+	local ret = sharplua.call(csfunc, ...)
 	print("Return:" , ret)
 end
 

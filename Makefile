@@ -1,12 +1,12 @@
-all : shapelua.dll test.exe
+all : sharplua.dll test.exe
 
-shapelua.dll : shapelua.c
+sharplua.dll : sharplua.c
 	gcc -g -Wall -o $@ --shared $^ -I/usr/local/include -L/usr/local/lib -llua
 
-test.exe : test.cs shapelua.cs shapeobject.cs
+test.exe : test.cs sharplua.cs sharpobject.cs
 	mcs -codepage:utf8 $^
 
 clean:
-	rm shapelua.dll test.exe
+	rm sharplua.dll test.exe
 
 

@@ -5,7 +5,7 @@ class MonoPInvokeCallbackAttribute : System.Attribute {
 	public MonoPInvokeCallbackAttribute( Type t ) {}
 }
 
-class ShapeLua {
+class SharpLua {
 	public enum var_type {
 		NIL = 0,
 		INTEGER = 1,
@@ -15,7 +15,7 @@ class ShapeLua {
 		STRING = 5,
 		POINTER = 6,
 		LUAOBJ = 7,
-		SHAPEOBJ = 8,
+		SHARPOBJ = 8,
 	};
 	public struct var {
 		public var_type type;
@@ -27,15 +27,15 @@ class ShapeLua {
 	public struct LuaObject {
 		public int id;
 	};
-	const string DLL = "shapelua.dll";
-	const int max_args = 256;	// Also defined in shapelua.c MAXRET
+	const string DLL = "sharplua.dll";
+	const int max_args = 256;	// Also defined in sharplua.c MAXRET
 
 	IntPtr L;
 	var[] args = new var[max_args];
 	string[] strs = new string[max_args];
-	static ShapeObject objects = new ShapeObject();	// All the ShapeLua class share one one objects map
+	static SharpObject objects = new SharpObject();	// All the SharpLua class share one one objects map
 
-	public delegate string ShapeFunction(int n, var[] argv);
+	public delegate string SharpFunction(int n, var[] argv);
 
 	[DllImport (DLL, CallingConvention=CallingConvention.Cdecl)]
 	static extern IntPtr c_newvm([MarshalAs(UnmanagedType.LPStr)] string name,  Callback cb, out IntPtr err);
@@ -53,12 +53,12 @@ class ShapeLua {
 
 	delegate int Callback(int argc, [In, Out, MarshalAs(UnmanagedType.LPArray, SizeConst=max_args)] var[] argv, IntPtr sud);
 	[MonoPInvokeCallback (typeof (Callback))]
-	static int CallShape(int argc, [In, Out, MarshalAs(UnmanagedType.LPArray, SizeConst=max_args)] var[] argv, IntPtr sud) {
+	static int CallSharp(int argc, [In, Out, MarshalAs(UnmanagedType.LPArray, SizeConst=max_args)] var[] argv, IntPtr sud) {
 		try {
-			ShapeFunction f = (ShapeFunction)objects.Get(argv[0].d);
+			SharpFunction f = (SharpFunction)objects.Get(argv[0].d);
 			string ret = f(argc, argv);
 			if (ret != null) {
-				// push string into L for passing C shape string to lua.
+				// push string into L for passing C sharp string to lua.
 				if (c_pushstring(sud, ret) == 0) {
 					throw new ArgumentException("Push string failed");
 				}
@@ -70,9 +70,9 @@ class ShapeLua {
 		}
 	}
 
-	public ShapeLua(string name) {
+	public SharpLua(string name) {
 		IntPtr err;
-		IntPtr tmp = c_newvm(name, CallShape, out err);
+		IntPtr tmp = c_newvm(name, CallSharp, out err);
 		if (err != IntPtr.Zero) {
 			string msg = Marshal.PtrToStringAnsi(err);
 			c_closevm(tmp);
@@ -82,7 +82,7 @@ class ShapeLua {
 		}
 	}
 
-	~ShapeLua() {
+	~SharpLua() {
 		c_closevm(L);
 	}
 
@@ -133,7 +133,7 @@ class ShapeLua {
 				v.type = var_type.LUAOBJ;
 				v.d = ((LuaObject)arg).id;
 			} else if (t.IsClass) {
-				v.type = var_type.SHAPEOBJ;
+				v.type = var_type.SHARPOBJ;
 				v.d = objects.Query(arg);
 			} else {
 				return 0;	// error
@@ -213,10 +213,10 @@ class ShapeLua {
 			case var_type.LUAOBJ :
 				ret[i] = new LuaObject { id = args[i].d };
 				break;
-			case var_type.SHAPEOBJ :
+			case var_type.SHARPOBJ :
 				ret[i] = objects.Get(args[i].d);
 				if (ret[i] == null) {
-					throw new ArgumentException("Invalid shape object");
+					throw new ArgumentException("Invalid sharp object");
 				}
 				break;
 			}

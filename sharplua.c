@@ -8,9 +8,9 @@
 
 #define DLLEXPORT __declspec(dllexport)
 
-// see shapelua.cs  ShapeLua.max_args
+// see sharplua.cs  ShapeLua.max_args
 #define MAXRET 256
-#define SUBMODNAME "shapelua.cscall"
+#define SUBMODNAME "sharplua.cscall"
 
 enum var_type {
 	NIL = 0,
@@ -21,7 +21,7 @@ enum var_type {
 	STRING = 5,
 	POINTER = 6,
 	LUAOBJ = 7,
-	SHAPEOBJ = 8,
+	SHARPOBJ = 8,
 };
 
 struct var {
@@ -41,7 +41,7 @@ struct string_pusher {
 	int done;
 };
 
-typedef int (*cshape_callback)(int argc, struct var *argv, struct string_pusher *sp);
+typedef int (*csharp_callback)(int argc, struct var *argv, struct string_pusher *sp);
 
 static int
 marshal_vars(lua_State *L, int n, struct var *v) {
@@ -107,7 +107,7 @@ marshal_vars(lua_State *L, int n, struct var *v) {
 			}
 			v[i].d = lua_tointeger(L, -1);
 			if (t[0] == 'S') {
-				v[i].type = SHAPEOBJ;
+				v[i].type = SHARPOBJ;
 			} else {
 				// t[0] == 'L'
 				v[i].type = LUAOBJ;
@@ -153,7 +153,7 @@ toluaobject(lua_State *L, struct var *v, int object, int strc, const char **strs
 		lua_pushlightuserdata(L, v->ptr);
 		break;
 	case LUAOBJ:
-	case SHAPEOBJ:
+	case SHARPOBJ:
 		if (object == 0) {
 			lua_rawgetp(L, LUA_REGISTRYINDEX, &func_object);
 			lua_replace(L, 1);
@@ -190,11 +190,11 @@ c_pushstring(struct string_pusher *sp, const char * str) {
 }
 
 static int
-Lshapecall(lua_State *L) {
+Lsharpcall(lua_State *L) {
 	if (lua_type(L, lua_upvalueindex(1)) != LUA_TLIGHTUSERDATA) {
 		return luaL_error(L, "call c_callback first");
 	}
-	cshape_callback cb = (cshape_callback)lua_touserdata(L, lua_upvalueindex(1));
+	csharp_callback cb = (csharp_callback)lua_touserdata(L, lua_upvalueindex(1));
 	struct var arg[MAXRET];
 	int n = lua_gettop(L);
 	int ok = marshal_vars(L, n , arg);
@@ -210,7 +210,7 @@ Lshapecall(lua_State *L) {
 	if (sp.done) {
 		// result string
 		if (arg[0].type != STRING) {
-			return luaL_error(L, "Invalid C shape function returns string, the type is %s", arg[0].type);
+			return luaL_error(L, "Invalid C sharp function returns string, the type is %s", arg[0].type);
 		}
 		arg[0].ptr = (void *)lua_tostring(L, -1);
 	}
@@ -222,7 +222,7 @@ Lshapecall(lua_State *L) {
 static int
 lib_cscall(lua_State *L) {
 	lua_pushnil(L);
-	lua_pushcclosure(L, Lshapecall, 1);
+	lua_pushcclosure(L, Lsharpcall, 1);
 	return 1;
 }
 
@@ -231,28 +231,28 @@ Linit(lua_State *L) {
 	const char *filename = lua_touserdata(L, 1);
 	luaL_openlibs(L);
 	luaL_requiref(L, SUBMODNAME, lib_cscall, 0);
-	lua_pushvalue(L, 2);	// cshape_callback
+	lua_pushvalue(L, 2);	// csharp_callback
 	lua_setupvalue(L, -2, 1);
 	lua_pop(L, 1);
 
 	if (luaL_dofile(L, filename) != LUA_OK) {
 		return lua_error(L);
 	}
-	if (lua_getglobal(L, "shapelua") != LUA_TTABLE) {
-		return luaL_error(L, "Require shapelua");
+	if (lua_getglobal(L, "sharplua") != LUA_TTABLE) {
+		return luaL_error(L, "Require sharplua");
 	}
 	if (lua_getfield(L, -1, "_proxy") != LUA_TFUNCTION) {
-		return luaL_error(L, "Missing shapelua._proxy");
+		return luaL_error(L, "Missing sharplua._proxy");
 	}
 	lua_rawsetp(L, LUA_REGISTRYINDEX, &func_proxy);
 
 	if (lua_getfield(L, -1, "_object") != LUA_TFUNCTION) {
-		return luaL_error(L, "Missing shapelua._object");
+		return luaL_error(L, "Missing sharplua._object");
 	}
 	lua_rawsetp(L, LUA_REGISTRYINDEX, &func_object);
 
 	if (lua_getfield(L, -1, "_garbage") != LUA_TFUNCTION) {
-		return luaL_error(L, "Missing shapelua._garbage");
+		return luaL_error(L, "Missing sharplua._garbage");
 	}
 	lua_rawsetp(L, LUA_REGISTRYINDEX, &func_garbage);
 
@@ -260,7 +260,7 @@ Linit(lua_State *L) {
 }
 
 DLLEXPORT lua_State *
-c_newvm(const char *filename, cshape_callback cb, void **err) {
+c_newvm(const char *filename, csharp_callback cb, void **err) {
 	lua_State *L = luaL_newstate();
 	if (L == NULL)
 		return NULL;

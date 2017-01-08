@@ -6,6 +6,7 @@ local getmetatable = getmetatable
 local rawget = rawget
 _G.sharplua = sharplua	-- make global
 
+local obj_ref = {}
 local obj_id = 0
 local function fetch_obj(cache, obj)
 	if obj_id > 1000000 then	-- max number of cache
@@ -14,11 +15,18 @@ local function fetch_obj(cache, obj)
 	obj_id = obj_id + 1
 	cache[obj] = obj_id
 	cache[obj_id] = obj
+	obj_ref[obj_id] = obj	-- strong reference
 	return obj_id
 end
 
 local obj_cache = setmetatable({}, { __index = fetch_obj, __mode = "kv"})
 local sharpobj_mt = {}	-- todo: sharp object
+
+function sharplua.unref()
+	if next(obj_ref) then
+		obj_ref = {}	-- clear strong reference, temp object in lua would be collect later.
+	end
+end
 
 function sharplua._proxy(obj)
 	if getmetatable(obj) == sharpobj_mt then
